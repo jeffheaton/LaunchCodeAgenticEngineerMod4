@@ -1,3 +1,8 @@
+ci-artifacts/ 
+ci-out/ 
+ci-reports/ 
+ci-audit-trail-*.json 
+audit-review-*.log
 .DS_Store
 # Byte-compiled / optimized / DLL files
 __pycache__/

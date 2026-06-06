@@ -1,81 +1,88 @@
 #!/usr/bin/env python3
-"""Combine per-job reports into one audit trail JSON file."""
+"""
+Build a small combined audit trail from CI metadata and downloaded artifacts.
+"""
+
+from __future__ import annotations
 
 import argparse
-import glob
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 
-def load_json(path: str | Path, default: Any) -> Any:
+def load_json(path: Path, default):
     try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def load_text(path: Path, default=""):
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
         return default
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sha", required=True)
+    parser.add_argument("--event", required=True)
     parser.add_argument("--pr", required=True)
+    parser.add_argument("--changed-files", default="")
     parser.add_argument("--touches-policy", default="false")
+    parser.add_argument("--requires-governed-check", default="false")
+    parser.add_argument("--policy-result", default="unknown")
+    parser.add_argument("--governed-result", default="unknown")
+    parser.add_argument("--review-result", default="unknown")
     parser.add_argument("--artifacts", default="ci-artifacts")
     args = parser.parse_args()
 
-    art = Path(args.artifacts)
-    policy = load_json(art / "policy-report.json", {})
-    deterministic = load_json(art / "deterministic-report.json", None)
-    rubric = load_json(art / "rubric-report.json", None)
+    artifact_dir = Path(args.artifacts)
 
-    agent_actions = []
-    denials = []
-    for path in glob.glob(str(art / "audit-*.log")):
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = json.loads(line)
-                except json.JSONDecodeError:
-                    entry = {"raw": line, "outcome": "unparsed"}
-                agent_actions.append({
-                    "role": entry.get("role"),
-                    "operation": entry.get("operation"),
-                    "outcome": entry.get("outcome") or entry.get("event"),
-                })
-                if entry.get("outcome") == "authorization_denied" or entry.get("event") == "authorization_denied":
-                    denials.append(entry)
+    policy_report = load_json(artifact_dir / "policy-report.json", {})
+    governed_report = load_json(artifact_dir / "governed-file-report.json", {})
+    review_audit = load_json(artifact_dir / "review-audit.json", {})
+    review_output = load_text(artifact_dir / "review-output.md", "")
 
     trail = {
         "metadata": {
             "sha": args.sha,
-            "pr": args.pr,
-            "event": os.environ.get("GITHUB_EVENT_NAME", "pull_request"),
+            "event": args.event,
+            "pull_request": args.pr,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
-        "policy": {
-            "passed": policy.get("exitcode", 0) == 0 if policy else False,
-            "checks": policy.get("tests", []),
+        "change_classification": {
+            "changed_files": args.changed_files.split(),
+            "touches_policy": args.touches_policy == "true",
+            "requires_governed_check": args.requires_governed_check == "true",
         },
-        "harness": {
-            "triggered": deterministic is not None or rubric is not None,
-            "passed": ((deterministic or {}).get("exitcode", 0) == 0 and (rubric or {}).get("exitcode", 0) == 0) if (deterministic or rubric) else True,
-            "deterministic": (deterministic or {}).get("tests", []),
-            "rubric": (rubric or {}).get("tests", []),
+        "results": {
+            "policy_gate": args.policy_result,
+            "governed_file_gate": args.governed_result,
+            "advisory_review": args.review_result,
         },
-        "agent_actions": agent_actions,
-        "authorization_denials": denials,
-        "touches_policy": args.touches_policy == "true",
+        "reports_present": {
+            "policy_report": bool(policy_report),
+            "governed_file_report": bool(governed_report),
+            "review_audit": bool(review_audit),
+            "review_output": bool(review_output),
+        },
+        "policy_report_summary": {
+            "exitcode": policy_report.get("exitcode"),
+            "tests": len(policy_report.get("tests", [])),
+        },
+        "governed_report_summary": {
+            "exitcode": governed_report.get("exitcode"),
+            "tests": len(governed_report.get("tests", [])),
+        },
+        "review_audit": review_audit,
     }
 
-    with open(f"ci-audit-trail-{args.sha}.json", "w", encoding="utf-8") as f:
-        json.dump(trail, f, indent=2)
-        f.write("\n")
+    out = Path(f"ci-audit-trail-{args.sha}.json")
+    out.write_text(json.dumps(trail, indent=2), encoding="utf-8")
+    print(f"Wrote {out}")
     return 0
 
 
