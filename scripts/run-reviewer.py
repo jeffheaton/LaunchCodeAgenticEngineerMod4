@@ -119,7 +119,7 @@ def call_anthropic(prompt: str) -> str:
             "Confirm that the repository secret is configured and injected only into this step.\n"
         )
 
-    model = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+    model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
     payload = {
         "model": model,
