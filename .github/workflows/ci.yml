@@ -24,7 +24,8 @@ jobs:
           else
             CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
           fi
-          echo "changed-files=$CHANGED" >> $GITHUB_OUTPUT
+          CHANGED_ONELINE=$(echo "$CHANGED" | tr '\n' ' ' | sed 's/ $//')
+          echo "changed-files=$CHANGED_ONELINE" >> $GITHUB_OUTPUT
           if echo "$CHANGED" | grep -qE '(docs/governance-policy\.md|mcp-servers/.*/allow-list\.json|scripts/run-agent\.sh|\.skills/)'; then
             echo "touches-policy=true" >> $GITHUB_OUTPUT
           else
