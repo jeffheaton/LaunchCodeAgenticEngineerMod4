@@ -1,6 +1,10 @@
-# Module 4 — LaunchCode Agentic Engineer
+# Module 4.2 — LaunchCode Agentic Engineer (CI/CD)
 
-Docker development environment for LaunchCode's **Agentic Programming** course, Module 4. Extends the Module 3 environment with:
+> **Note:** This repository covers **Module 4.2 (CI/CD) only.**
+> For Module 4.1 and Module 4.3, use the materials in the main course repository:
+> [https://github.com/jeffheaton/LaunchCodeAgenticEngineer/tree/main/module_4](https://github.com/jeffheaton/LaunchCodeAgenticEngineer/tree/main/module_4)
+
+Docker development environment for LaunchCode's **Agentic Programming** course, Module 4.2 (CI/CD). Extends the Module 3 environment with:
 
 - **Slack MCP server** — lets Claude Code prompts read and post to Slack
 - **Gmail MCP server** — lets Claude Code prompts read and send email
